@@ -39,7 +39,7 @@ static void* pwospf_run_thread(void* arg);
 void add_neighbor(struct if_nbr* nbr_head, struct if_nbr* new_neighbor);
 void hello_messages_thread(struct sr_instance *sr);
 void* hello_message(struct sr_if_packet * sr_if_pk);
-void* scan_neighbor_list(void* thread);
+void* scan_neighbor_list(struct sr_instance* sr);
 void dijkstra_stack_push(struct route_dijkstra_node* dijkstra_first_item, struct route_dijkstra_node* dijkstra_new_item);
 struct route_dijkstra_node* dijkstra_stack_pop(struct route_dijkstra_node* dijkstra_first_item);
 struct route_dijkstra_node* create_dikjstra_item(struct pwospf_topology_entry* new_topology_entry, uint8_t dist);
@@ -408,47 +408,50 @@ void* hello_message(struct sr_if_packet * sr_if_pk)
  * Method: scan_neighbor_list(void* thread)
  * Scan the neighbor list, check if neighbors are alive or deleted them for the list.
  *-----------------------------------------------------------------------------------*/
-void* scan_neighbor_list(void* thread)
+void* scan_neighbor_list(struct sr_instance* sr)
 {
 	while(1)
 	{
 		usleep(1000000);
-
-		struct neighbor_list* tmp_walker = nbr_head;
-
-		while(tmp_walker != NULL)
-		{
-			// If there is no neighbor in this interface, break from the scan.
-			if (tmp_walker->next == NULL)
+		
+		struct sr_if* if_walker = sr->if_list;
+		while(if_walker != NULL){
+			struct if_nbr* tmp_walker = if_walker->nbr_list;
+			while(tmp_walker != NULL)
 			{
-				break;
-			}
-
-			// if the alive is zero then delete the neighbor from the list.
-			if (tmp_walker->next->alive == 0)
-			{
-				// Debug("\n\n**** PWOSPF: Removing the neighbor, [ID = %s] from the alive neighbors table\n\n", inet_ntoa(ptr->next->neighbor_id));
-
-				struct neighbor_list* delete_neighbor = tmp_walker->next;
-
-				if (tmp_walker->next->next != NULL)
+				// If there is no neighbor in this interface, break from the scan.
+				if (tmp_walker->next == NULL)
 				{
-					tmp_walker->next = tmp_walker->next->next;
+					break;
+				}
+	
+				// if the alive is zero then delete the neighbor from the list.
+				if (tmp_walker->next->alive == 0)
+				{
+					// Debug("\n\n**** PWOSPF: Removing the neighbor, [ID = %s] from the alive neighbors table\n\n", inet_ntoa(ptr->next->neighbor_id));
+	
+					struct if_nbr* delete_neighbor = tmp_walker->next;
+	
+					if (tmp_walker->next->next != NULL)
+					{
+						tmp_walker->next = tmp_walker->next->next;
+					}
+					else
+					{
+						tmp_walker->next = NULL;
+					}
+	
+					free(delete_neighbor);
 				}
 				else
 				{
-					tmp_walker->next = NULL;
+					// else deduce the alive for one.
+					tmp_walker->next->alive--;
 				}
-
-				free(delete_neighbor);
+	
+				tmp_walker = tmp_walker->next;
 			}
-			else
-			{
-				// else deduce the alive for one.
-				tmp_walker->next->alive--;
-			}
-
-			tmp_walker = tmp_walker->next;
+			if_walker = if_walker->next;
 		}
 	};
 
