@@ -83,12 +83,15 @@ int pwospf_init(struct sr_instance* sr)
 
 	// nbr list header pointer and init header address.
 	struct in_addr header_addr;
-	header_addr.s_addr = 0;
-	nbr_head = NULL;
-	nbr_head = ((struct neighbor_list*)(malloc(sizeof(struct neighbor_list))));
-	nbr_head->neighbor_id.s_addr = header_addr.s_addr;
-	nbr_head->alive = OSPF_NEIGHBOR_TIMEOUT;
-	nbr_head->next = NULL;
+	header_addr.s_addr = 0;s
+	struct sr_if* if_walker = sr->if_list;
+	while(if_walker != NULL){
+		if_walker->nbr_list = ((struct if_nbr*)(malloc(sizeof(struct if_nbr))));
+		if_walker->nbr_list->neighbor_id.s_addr = header_addr.s_addr;
+		if_walker->nbr_list->alive = OSPF_NEIGHBOR_TIMEOUT;
+		if_walker->nbr_list->next = NULL;
+		if_walker = if_walker->next;
+	}
 
 	/* -- handle subsystem initialization here! -- */
 
