@@ -47,8 +47,6 @@ void sr_init(struct sr_instance* sr)
     assert(sr);
 	sr->arp_cache = NULL;
 	sr->msg_cache = NULL;
-	pwospf_init(sr);
-	
     /* Add initialization code here! */
 
 } /* -- sr_init -- */

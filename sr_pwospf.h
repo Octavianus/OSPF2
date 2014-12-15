@@ -73,7 +73,7 @@ struct pwospf_topology_entry
 struct pwospf_topology_entry* topology_header;
 
 int pwospf_init(struct sr_instance* sr);
-void add_neighbor(struct neighbor_list* ngh_head, struct neighbor_list* new_neighbor);
+void add_neighbor(struct if_nbr* ngh_head, struct if_nbr* new_neighbor);
 
 
 #endif /* SR_PWOSPF_H */

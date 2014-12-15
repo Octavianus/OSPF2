@@ -83,11 +83,11 @@ int pwospf_init(struct sr_instance* sr)
 
 	// nbr list header pointer and init header address.
 	struct in_addr header_addr;
-	header_addr.s_addr = 0;s
+	header_addr.s_addr = 0;
 	struct sr_if* if_walker = sr->if_list;
 	while(if_walker != NULL){
 		if_walker->nbr_list = ((struct if_nbr*)(malloc(sizeof(struct if_nbr))));
-		if_walker->nbr_list->neighbor_id.s_addr = header_addr.s_addr;
+		if_walker->nbr_list->nbr_id = header_addr.s_addr;
 		if_walker->nbr_list->alive = OSPF_NEIGHBOR_TIMEOUT;
 		if_walker->nbr_list->next = NULL;
 		if_walker = if_walker->next;
@@ -109,7 +109,7 @@ int pwospf_init(struct sr_instance* sr)
 		assert(0);
 	}
 
-	if( pthread_create(&T_neighbor, NULL, scan_neighbor_list, NULL)) {
+	if( pthread_create(&T_neighbor, NULL, scan_neighbor_list, sr)) {
 		perror("pthread_create");
 		assert(0);
 	}
@@ -183,6 +183,9 @@ void handle_hello_packets(struct sr_instance* sr, struct sr_if* interface, uint8
 	// Contruct the header.
 
 	struct sr_if *sr_in = sr_get_interface(sr, interface);
+	struct in_addr tempid;
+	tempid.s_addr = sr_get_interface(sr, "eth0")->ip;
+	router_id.s_addr = tempid.s_addr;
 	struct ip * iP_Hdr = NULL;
 	iP_Hdr = (struct ip *)(packet + sizeof(struct sr_ethernet_hdr));
 	struct ospfv2_hdr* ospfv2_Hdr = (struct ospfv2_hdr *)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct ip));
@@ -247,7 +250,7 @@ void handle_hello_packets(struct sr_instance* sr, struct sr_if* interface, uint8
 		struct if_nbr* ptr = if_walker->nbr_list;
 		while(ptr != NULL)
 		{
-			if (ptr->nbr_id.s_addr == neighbor_id.s_addr)
+			if (ptr->nbr_id == neighbor_id.s_addr)
 			{
 				Debug("-> PWOSPF: Refreshing the neighbor, [ID = %s] in the alive neighbors table\n", inet_ntoa(neighbor_id));
 				ptr->alive = OSPF_NEIGHBOR_TIMEOUT;
@@ -257,7 +260,6 @@ void handle_hello_packets(struct sr_instance* sr, struct sr_if* interface, uint8
 			ptr = ptr->next;
 		}
 		if_walker = if_walker->next;
-		Debug("-> PWOSPF: Adding the neighbor, [ID = %s] to the alive neighbors table\n", inet_ntoa(neighbor_id));
 	}
 
 	// send the lsu announcement to the internet of adding a new neighbor
@@ -265,13 +267,14 @@ void handle_hello_packets(struct sr_instance* sr, struct sr_if* interface, uint8
 	{
 		// Create a new neighbor and malloc memory for it, and add it to the list
 		struct if_nbr* new_neighbor = (struct if_nbr*)(malloc(sizeof(struct if_nbr)));
-		new_neighbor->nbr_id.s_addr = neighbor_id.s_addr;
+		new_neighbor->nbr_id = neighbor_id.s_addr;
 		new_neighbor->nbr_ip = iP_Hdr->ip_src.s_addr;
 		new_neighbor->alive = OSPF_NEIGHBOR_TIMEOUT;
 		new_neighbor->next = NULL;
 		// sub function of creat a new neib, memory for new neighbor is allocated
 		// Add a new node in interface neighbor list
 		add_neighbor(sr_in->nbr_list, new_neighbor);
+		Debug("-> PWOSPF: Adding the neighbor, [ID = %s] to the alive neighbors table\n", inet_ntoa(neighbor_id));
 		struct sr_if_packet* lsu_param = (struct sr_if_packet*)(malloc(sizeof(struct sr_if_packet)));
 		lsu_param->sr = sr;
 		lsu_param->interface = interface;
@@ -324,8 +327,7 @@ void hello_messages_thread(struct sr_instance *sr)
 			sr_if_pk->interface = if_walker;
 			pthread_create(&T_hello, NULL, hello_message, sr_if_pk); // void sr_if_pk
 			//pthread_create( &thread, NULL, Arp_Cache_Timeout, (void*)&sr_if_pk);
-
-			if_walker->helloint = OSPF_DEFAULT_HELLOINT;
+			//if_walker->helloint = OSPF_DEFAULT_HELLOINT;
 			//}
 			if_walker = if_walker->next;
 		}

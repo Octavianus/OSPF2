@@ -35,6 +35,15 @@ struct sr_instance;
  *
  * -------------------------------------------------------------------------- */
 
+// neighbour list in each interface
+struct if_nbr
+{
+	uint8_t alive;
+	uint32_t nbr_id;
+	uint32_t nbr_ip;
+	struct if_nbr* next;
+};
+
 struct sr_if
 {
     char name[SR_IFACE_NAMELEN];
@@ -42,11 +51,8 @@ struct sr_if
     uint32_t ip;
     uint32_t speed;
     volatile uint32_t mask;
+    struct if_nbr* nbr_list;
     struct sr_if* next;
-
-    uint8_t helloint;
-    uint32_t neighbor_id;
-    uint32_t neighbor_ip;
 };
 
 struct sr_if* sr_get_interface(struct sr_instance* sr, const char* name);
