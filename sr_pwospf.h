@@ -20,8 +20,12 @@
 /* forward declare */
 struct sr_instance;
 
+// Thread declare
 pthread_t T_hello;
 pthread_t T_neighbor;
+pthread_t T_dijkstra;
+pthread_t T_topo_entry;
+pthread_t T_lsu;
 pthread_t T_dijkstra;
 
 // Mutex lock for the dijkstra calculation look
@@ -66,7 +70,7 @@ struct pwospf_topology_entry
     struct in_addr neighbor_id;     /* neighbour router id */
    // struct in_addr next_hop;        /* next hop */
     uint16_t sequence_num;         /* sequence number of the related LSU */
-    int time_stamp;                       /* the timestamp of this advertised link */
+    uint8_t alive;                       /* the timestamp of this advertised link */
     struct pwospf_topology_entry* next;
 }__attribute__ ((packed));
 

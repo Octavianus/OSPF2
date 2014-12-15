@@ -256,6 +256,7 @@ static void sr_init_instance(struct sr_instance* sr)
     sr->if_list = 0;
     sr->routing_table = 0;
     sr->logfile = 0;
+    sr->hw_init = 0;
 } /* -- sr_init_instance -- */
 
 /*-----------------------------------------------------------------------------
@@ -284,7 +285,7 @@ int sr_verify_routing_table(struct sr_instance* sr)
 
     if( (sr->if_list == 0) || (sr->routing_table == 0))
     {
-        return 999; /* doh! */
+        return 0; /* assume empty */
     }
 
     rt_walker = sr->routing_table;

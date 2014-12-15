@@ -29,32 +29,35 @@ struct sr_if_packet
 	struct sr_if* interface;
 }__attribute__ ((packed));
 
+struct pwospf_topology_entry* topo = NULL;
+
 /* -- declaration of main thread function for pwospf subsystem --- */
 void handle_hello_packets(struct sr_instance* sr, struct sr_if* interface, uint8_t* packet, unsigned int length);
 void sr_handleLSU(struct sr_instance* sr,
-        uint8_t * packet,
-        unsigned int len,
-        char* interface);
+		uint8_t * packet,
+		unsigned int len,
+		char* interface);
 static void* pwospf_run_thread(void* arg);
 void add_neighbor(struct if_nbr* nbr_head, struct if_nbr* new_neighbor);
 void hello_messages_thread(struct sr_instance *sr);
 void* hello_message(struct sr_if_packet * sr_if_pk);
 void* scan_neighbor_list(struct sr_instance* sr);
+void* scan_topo_entry(struct sr_instance* sr);
 void dijkstra_stack_push(struct route_dijkstra_node* dijkstra_first_item, struct route_dijkstra_node* dijkstra_new_item);
 struct route_dijkstra_node* dijkstra_stack_pop(struct route_dijkstra_node* dijkstra_first_item);
 struct route_dijkstra_node* create_dikjstra_item(struct pwospf_topology_entry* new_topology_entry, uint8_t dist);
 void* run_dijkstra(struct sr_instance* sr);
 
 void sr_handlePWOSPF(struct sr_instance* sr,
-        uint8_t * packet,
-        unsigned int len,
-        char* interface)
+		uint8_t * packet,
+		unsigned int len,
+		char* interface)
 {
 	struct ospfv2_hdr *pw_hdr = (struct ospfv2_hdr *)(packet + sizeof(struct sr_ethernet_hdr) + sizeof(struct ip));
 	if (pw_hdr->type == OSPF_TYPE_HELLO)
 		handle_hello_packets(sr, interface, packet, len);
 	//if (pw_hdr->type == OSPF_TYPE_LSU)
-		//sr_handleLSU(sr, packet,len,interface);
+	//sr_handleLSU(sr, packet,len,interface);
 
 }
 
@@ -93,11 +96,7 @@ int pwospf_init(struct sr_instance* sr)
 		if_walker = if_walker->next;
 	}
 
-	/* -- handle subsystem initialization here! -- */
-
-	// TODO need it
-	// topology_header = create_ospfv2_topology_entry(header_addr, header_addr, header_addr, header_addr, header_addr, 0);
-
+	/* -- handle subsystem initialization here! -- *
 	/* -- start thread subsystem -- */
 	if( pthread_create(&sr->ospf_subsys->thread, 0, pwospf_run_thread, sr)) {
 		perror("pthread_create");
@@ -110,6 +109,11 @@ int pwospf_init(struct sr_instance* sr)
 	}
 
 	if( pthread_create(&T_neighbor, NULL, scan_neighbor_list, sr)) {
+		perror("pthread_create");
+		assert(0);
+	}
+
+	if( pthread_create(&T_topo_entry, NULL, scan_topo_entry, sr)){
 		perror("pthread_create");
 		assert(0);
 	}
@@ -159,7 +163,6 @@ void* pwospf_run_thread(void* arg)
 	while(1)
 	{
 		/* -- PWOSPF subsystem functionality should start  here! -- */
-
 		pwospf_lock(sr->ospf_subsys);
 		printf(" pwospf subsystem sleeping \n");
 		pwospf_unlock(sr->ospf_subsys);
@@ -210,7 +213,7 @@ void handle_hello_packets(struct sr_instance* sr, struct sr_if* interface, uint8
 		Debug("-> PWOSPF: HELLO Packet dropped, invalid checksum\n");
 		return;
 	}
-	*/
+	 */
 
 	// Examine the validation of the hello interval
 	if (ospfv2_Hello_Hdr->helloint != htons(OSPF_DEFAULT_HELLOINT))
@@ -241,7 +244,7 @@ void handle_hello_packets(struct sr_instance* sr, struct sr_if* interface, uint8
 			break;
 		}
 	}
-	
+
 	// give the header of the neighbor list and the neighbor id, and renew the neighbors' timestamp
 	// Need to scan all the neighbor because, each receive proving its alive
 	struct sr_if* if_walker = sr->if_list;
@@ -256,7 +259,7 @@ void handle_hello_packets(struct sr_instance* sr, struct sr_if* interface, uint8
 				ptr->alive = OSPF_NEIGHBOR_TIMEOUT;
 				break;
 			}
-	
+
 			ptr = ptr->next;
 		}
 		if_walker = if_walker->next;
@@ -320,7 +323,7 @@ void hello_messages_thread(struct sr_instance *sr)
 			}
 			else
 			{
-			*/
+			 */
 			// send hello packet.
 			struct sr_if_packet* sr_if_pk = (struct sr_if_packet*)(malloc(sizeof(struct sr_if_packet)));
 			sr_if_pk->sr = sr;
@@ -349,6 +352,7 @@ void* hello_message(struct sr_if_packet * sr_if_pk)
 
 	Debug("\n\nPWOSPF: Constructing HELLO packet for interface %s: \n", sr_if_pk->interface->name);
 
+	// Construct
 	struct sr_ethernet_hdr* eth_hdr = (struct sr_ethernet_hdr*)(malloc(sizeof(struct sr_ethernet_hdr)));
 	struct ip* ip_hdr = (struct ip*)(malloc(sizeof(struct ip)));
 	struct ospfv2_hdr* ospf_hdr = (struct ospfv2_hdr*)(malloc(sizeof(struct ospfv2_hdr)));
@@ -418,7 +422,7 @@ void* scan_neighbor_list(struct sr_instance* sr)
 	while(1)
 	{
 		usleep(1000000);
-		
+
 		struct sr_if* if_walker = sr->if_list;
 		while(if_walker != NULL){
 			struct if_nbr* tmp_walker = if_walker->nbr_list;
@@ -429,14 +433,14 @@ void* scan_neighbor_list(struct sr_instance* sr)
 				{
 					break;
 				}
-	
+
 				// if the alive is zero then delete the neighbor from the list.
 				if (tmp_walker->next->alive == 0)
 				{
 					// Debug("\n\n**** PWOSPF: Removing the neighbor, [ID = %s] from the alive neighbors table\n\n", inet_ntoa(ptr->next->neighbor_id));
-	
+
 					struct if_nbr* delete_neighbor = tmp_walker->next;
-	
+
 					if (tmp_walker->next->next != NULL)
 					{
 						tmp_walker->next = tmp_walker->next->next;
@@ -445,7 +449,7 @@ void* scan_neighbor_list(struct sr_instance* sr)
 					{
 						tmp_walker->next = NULL;
 					}
-	
+
 					free(delete_neighbor);
 				}
 				else
@@ -453,13 +457,59 @@ void* scan_neighbor_list(struct sr_instance* sr)
 					// else deduce the alive for one.
 					tmp_walker->next->alive--;
 				}
-	
+
 				tmp_walker = tmp_walker->next;
 			}
 			if_walker = if_walker->next;
 		}
 	};
 
+}
+
+/*------------------------------------------------------------------------------------
+ * Method: scan_topo_entry(struct sr_instance* sr)
+ * Scan topo entry to refresh and deleted the stale node.
+ *-----------------------------------------------------------------------------------*/
+void* scan_topo_entry(struct sr_instance* sr){
+	while(1){+
+		usleep(1000000);
+		struct pwospf_topology_entry* temp_entry = topo;
+		struct pwospf_topology_entry* prev_topo = NULL;
+
+		while(temp_entry != NULL){
+			if (temp_entry->alive == 0)
+			{
+				// Debug("\n\n**** PWOSPF: Removing the neighbor, [ID = %s] from the alive neighbors table\n\n", inet_ntoa(ptr->next->neighbor_id));
+				struct pwospf_topology_entry* delete_topo = temp_entry;
+
+				if (temp_entry->next != NULL)
+				{
+					if(prev_topo == NULL){
+						topo = temp_entry->next;
+					}
+					else
+					{
+						prev_topo->next = temp_entry->next;
+					}
+					temp_entry = temp_entry->next;
+				}
+				else
+				{
+					prev_topo->next = NULL;
+					temp_entry->next = NULL;
+				}
+
+				free(delete_topo);
+			}
+			else
+			{
+				// else deduce the alive for one.
+				temp_entry->alive--;
+			}
+			prev_topo = temp_entry;
+			temp_entry = temp_entry->next;
+		}
+	}
 }
 
 /*------------------------------------------------------------------------------------
@@ -517,15 +567,15 @@ struct route_dijkstra_node* create_dikjstra_item(struct pwospf_topology_entry* n
  *-----------------------------------------------------------------------------------*/
 void add_neighbor(struct if_nbr* ngh_head, struct if_nbr* new_neighbor)
 {
-    if (ngh_head->next != NULL)
-    {
-        new_neighbor->next = ngh_head->next;
-        ngh_head->next = new_neighbor;
-    }
-    else
-    {
-    	ngh_head->next = new_neighbor;
-    }
+	if (ngh_head->next != NULL)
+	{
+		new_neighbor->next = ngh_head->next;
+		ngh_head->next = new_neighbor;
+	}
+	else
+	{
+		ngh_head->next = new_neighbor;
+	}
 }
 
 /*---------------------------------------------------------------------
